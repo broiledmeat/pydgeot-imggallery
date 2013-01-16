@@ -21,7 +21,7 @@ class ImgGalleryProcessor(Processor):
         self.max_height = self._get_setting('height', 160)
 
         if self.root is not None and self.template is not None:
-            self.regex = re.compile('^{0}{1}([^{1}]*)$'.format(self.root, os.sep).replace('\\', '\\\\'))
+            self.regex = re.compile('^{0}{1}(.*)$'.format(self.root, os.sep).replace('\\', '\\\\'))
             self.root = os.path.abspath(os.path.join(self.app.content_root, self.root))
             self.build_root = os.path.join(self.app.build_root, os.path.relpath(self.root, self.app.content_root))
             self.template = os.path.abspath(os.path.join(self.app.content_root, self.template))
@@ -30,13 +30,12 @@ class ImgGalleryProcessor(Processor):
 
         if self.is_valid:
             self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.content_root))
+            self._generate_dirs = {}
 
     def can_process(self, path):
-        # TODO: regex not matching subdirectories
         return self.is_valid and self.regex.search(os.path.relpath(path, self.app.content_root)) is not None
 
     def process_update(self, path):
-        # TODO: figure out how to not generate the index page each time. There may be more images to process after this!
         if path == self.template:
             # TODO: regenerate all indexes
             return []
@@ -56,13 +55,20 @@ class ImgGalleryProcessor(Processor):
             targets.append(thumb)
 
         dir = os.path.dirname(path)
-        self._generate_index(dir)
+        if dir not in self._generate_dirs:
+            self._generate_dirs[dir] = []
 
         return targets
 
     def process_delete(self, path):
         dir = os.path.dirname(path)
-        self._generate_index(dir, exclude=[path])
+        if dir not in self._generate_dirs:
+            self._generate_dirs[dir] = []
+        self._generate_dirs[dir].append(path)
+
+    def process_changes_complete(self):
+        for directory, excludes in self._generate_dirs.items():
+            self._generate_index(directory, excludes)
 
     def _generate_index(self, directory, exclude=None):
         walk = list(os.walk(directory))
