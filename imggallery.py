@@ -9,6 +9,7 @@ from pydgeot.processors import register, Processor
 class ImgGalleryProcessor(Processor):
     priority = 100
     key_name = 'imggallery'
+    thumb_dir = '.thumbs'
     def __init__(self, app):
         super().__init__(app)
         self.root = self._get_setting('directory')
@@ -32,14 +33,20 @@ class ImgGalleryProcessor(Processor):
             self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.content_root))
             self._generate_dirs = {}
 
+
     def can_process(self, path):
         return self.is_valid and self.regex.search(os.path.relpath(path, self.app.content_root)) is not None
 
     def process_update(self, path):
         if path == self.template:
-            # TODO: regenerate all indexes
+            walk = list(os.walk(self.root))
+            dirs = [path for path, dirs, files in walk if not self._is_hidden(path)]
+            dirs.append(self.root)
+            for dir in dirs:
+                if dir not in self._generate_dirs:
+                    self._generate_dirs[dir] = []
             return []
-        if os.path.basename(path).startswith('.'):
+        if self._is_hidden(path):
             return []
 
         # Copy original
@@ -71,22 +78,19 @@ class ImgGalleryProcessor(Processor):
             self._generate_index(directory, excludes)
 
     def _generate_index(self, directory, exclude=None):
-        walk = list(os.walk(directory))
-        dirs = [path for path, dirs, files in walk if not path.startswith('.')]
-        files = [os.path.join(path, filename)
-                 for path, dirs, files in walk
-                 for filename in files
-                 if not filename.startswith('.')]
+        dirs = []
+        files = []
+        for name in os.listdir(directory):
+            path = os.path.join(directory, name)
+            if self._is_hidden(path) or path in exclude or path == self.template:
+                continue
+            elif os.path.isfile(path):
+                files.append(path)
+            elif os.path.isdir(path):
+                dirs.append(path)
 
-        if directory in dirs:
-            dirs.remove(directory)
-        if self.template in files:
-            files.remove(self.template)
-        if exclude is not None:
-            files = [path for path in files if path not in exclude]
-
-        cdirs = self._contextify_file_list(directory, dirs)
-        cfiles = self._contextify_file_list(directory, files)
+        dirs = self._contextify_file_list(directory, dirs)
+        files = self._contextify_file_list(directory, files)
 
         rel = os.path.relpath(directory, self.app.content_root)
         target = os.path.join(self.app.build_root, rel)
@@ -94,20 +98,24 @@ class ImgGalleryProcessor(Processor):
         content = open(self.template).read()
         template = self.env.from_string(content)
         f = open(os.path.join(target, self.index), 'w')
-        f.write(template.render(dirs=cdirs, files=cfiles))
+        f.write(template.render(
+            has_parent_dir=(directory != self.root),
+            dirs=dirs,
+            files=files))
         f.close()
 
     def _contextify_file_list(self, root, files):
         for file in files:
-            rel = os.path.relpath(file, root)
             thumb = self._get_thumbnail(file)
             if thumb is not None:
-                thumb = os.path.relpath(thumb, self.build_root)
-            yield (rel, thumb)
+                thumb = os.path.relpath(thumb, root)
+            yield (os.path.basename(file), thumb)
 
     def _thumbnail_path(self, path):
         rel = os.path.relpath(path, self.root)
-        return os.path.join(self.build_root, '.thumbs', rel)
+        dir = os.path.dirname(rel)
+        file = os.path.basename(rel)
+        return os.path.abspath(os.path.join(self.build_root, dir, self.thumb_dir, file))
 
     def _get_thumbnail(self, path):
         thumb = self._thumbnail_path(path)
@@ -121,6 +129,7 @@ class ImgGalleryProcessor(Processor):
     def _generate_thumbnail(self, path):
         if os.path.splitext(path)[1] in self.thumbable_exts:
             target = self._thumbnail_path(path)
+            image = None
             try:
                 image = pystacia.read(path)
                 if image.width > self.max_width or image.height > self.max_height:
@@ -132,8 +141,16 @@ class ImgGalleryProcessor(Processor):
             except:
                 pass
             finally:
-                image.close()
+                if image is not None:
+                    image.close()
         return None
+
+    def _is_hidden(self, path):
+        if os.path.basename(path).lower() == 'thumbs.db':
+            return True
+        rel = os.path.relpath(path, self.root)
+        parts = rel.split(os.sep)
+        return any([part != '..' and part.startswith('.') for part in parts])
 
     def _get_setting(self, name, default=None):
         if self.key_name not in self.app.settings:
