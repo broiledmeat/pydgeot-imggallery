@@ -99,6 +99,7 @@ class ImgGalleryProcessor(Processor):
         template = self.env.from_string(content)
         f = open(os.path.join(target, self.index), 'w')
         f.write(template.render(
+            dir_name=os.path.basename(directory),
             has_parent_dir=(directory != self.root),
             dirs=dirs,
             files=files))
@@ -108,7 +109,9 @@ class ImgGalleryProcessor(Processor):
         for file in files:
             thumb = self._get_thumbnail(file)
             if thumb is not None:
-                thumb = os.path.relpath(thumb, root)
+                rel_thumb = os.path.relpath(thumb, self.app.build_root)
+                rel_root = os.path.relpath(root, self.app.content_root)
+                thumb = os.path.relpath(rel_thumb, rel_root)
             yield (os.path.basename(file), thumb)
 
     def _thumbnail_path(self, path):
