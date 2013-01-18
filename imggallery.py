@@ -1,9 +1,30 @@
+import sys
 import os
+import types
 import re
 import shutil
 import pystacia
 import jinja2
 from pydgeot.processors import register, Processor
+
+if sys.platform == 'win32':
+    try:
+        from ctypes import windll
+        def _is_hidden(self, path):
+            try:
+                attrs = windll.kernel32.GetFileAttributesW(path)
+                print(path, attrs)
+                return bool(attrs & 2)
+            except (AttributeError, AssertionError):
+                return False
+    except ImportError:
+        pass
+
+if '_is_hidden' not in globals():
+    def _is_hidden(self, path):
+        rel = os.path.relpath(path, self.root)
+        parts = rel.split(os.sep)
+        return any([part != '..' and part.startswith('.') for part in parts])
 
 @register()
 class ImgGalleryProcessor(Processor):
@@ -30,6 +51,7 @@ class ImgGalleryProcessor(Processor):
         self.is_valid = os.path.isdir(self.root) and os.path.isfile(self.template)
 
         if self.is_valid:
+            setattr(self, _is_hidden.__name__, types.MethodType(_is_hidden, self))
             self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.content_root))
             self._generate_dirs = {}
 
@@ -147,13 +169,6 @@ class ImgGalleryProcessor(Processor):
                 if image is not None:
                     image.close()
         return None
-
-    def _is_hidden(self, path):
-        if os.path.basename(path).lower() == 'thumbs.db':
-            return True
-        rel = os.path.relpath(path, self.root)
-        parts = rel.split(os.sep)
-        return any([part != '..' and part.startswith('.') for part in parts])
 
     def _get_setting(self, name, default=None):
         if self.key_name not in self.app.settings:
