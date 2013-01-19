@@ -10,13 +10,16 @@ from pydgeot.processors import register, Processor
 if sys.platform == 'win32':
     try:
         from ctypes import windll
+        _kdll = windll.LoadLibrary('kernel32.dll')
         def _is_hidden(self, path):
             try:
                 attrs = windll.kernel32.GetFileAttributesW(path)
-                print(path, attrs)
                 return bool(attrs & 2)
             except (AttributeError, AssertionError):
                 return False
+        def _create_symlink(self, source, target):
+            a = _kdll.CreateSymbolicLinkW(target, source, 0)
+            print(target, source, a)
     except ImportError:
         pass
 
@@ -25,6 +28,9 @@ if '_is_hidden' not in globals():
         rel = os.path.relpath(path, self.root)
         parts = rel.split(os.sep)
         return any([part != '..' and part.startswith('.') for part in parts])
+if '_create_symlink' not in globals():
+    def _create_symlink(self, source, target):
+        os.symlink(source, target)
 
 @register()
 class ImgGalleryProcessor(Processor):
@@ -41,6 +47,7 @@ class ImgGalleryProcessor(Processor):
         self.ext_thumbs = self._get_setting('ext_thumbs', {})
         self.max_width = self._get_setting('width', 214)
         self.max_height = self._get_setting('height', 160)
+        self.use_symlinks = self._get_setting('use_symlinks', False)
 
         if self.root is not None and self.template is not None:
             self.regex = re.compile('^{0}{1}(.*)$'.format(self.root, os.sep).replace('\\', '\\\\'))
@@ -52,6 +59,7 @@ class ImgGalleryProcessor(Processor):
 
         if self.is_valid:
             setattr(self, _is_hidden.__name__, types.MethodType(_is_hidden, self))
+            setattr(self, _create_symlink.__name__, types.MethodType(_create_symlink, self))
             self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.content_root))
             self._generate_dirs = {}
 
@@ -71,11 +79,15 @@ class ImgGalleryProcessor(Processor):
         if self._is_hidden(path):
             return []
 
-        # Copy original
         rel = os.path.relpath(path, self.app.content_root)
         target = os.path.join(self.app.build_root, rel)
         os.makedirs(os.path.dirname(target), exist_ok=True)
-        shutil.copy2(path, target)
+        if self.use_symlinks:
+            # Create symlink
+            self._create_symlink(path, target)
+        else:
+            # Copy original
+            shutil.copy2(path, target)
         targets = [target]
 
         # Generate thumbnail
