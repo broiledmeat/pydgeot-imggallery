@@ -9,17 +9,15 @@ from pydgeot.processors import register, Processor
 
 if sys.platform == 'win32':
     try:
-        from ctypes import windll
-        _kdll = windll.LoadLibrary('kernel32.dll')
+        import win32file
+
         def _is_hidden(self, path):
             try:
-                attrs = windll.kernel32.GetFileAttributesW(path)
-                return bool(attrs & 2)
+                return bool(win32file.GetFileAttributes(path) & 2)
             except (AttributeError, AssertionError):
                 return False
         def _create_symlink(self, source, target):
-            a = _kdll.CreateSymbolicLinkW(target, source, 0)
-            print(target, source, a)
+            win32file.CreateSymbolicLink(target, source)
     except ImportError:
         pass
 
