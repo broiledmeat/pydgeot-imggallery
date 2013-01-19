@@ -63,7 +63,7 @@ class ImgGalleryProcessor(Processor):
             setattr(self, _is_hidden.__name__, types.MethodType(_is_hidden, self))
             setattr(self, _create_symlink.__name__, types.MethodType(_create_symlink, self))
             self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.content_root))
-            self._generate_dirs = {}
+            self._generate_dirs = []
 
 
     def can_process(self, path):
@@ -76,7 +76,7 @@ class ImgGalleryProcessor(Processor):
             dirs.append(self.root)
             for dir in dirs:
                 if dir not in self._generate_dirs:
-                    self._generate_dirs[dir] = []
+                    self._generate_dirs.append(dir)
             return []
         if self._is_hidden(path) or os.path.basename(path) == self.index:
             return []
@@ -100,26 +100,26 @@ class ImgGalleryProcessor(Processor):
 
         dir = os.path.dirname(path)
         if dir not in self._generate_dirs:
-            self._generate_dirs[dir] = []
+            self._generate_dirs.append(dir)
 
         return targets
 
     def process_delete(self, path):
         dir = os.path.dirname(path)
         if dir not in self._generate_dirs:
-            self._generate_dirs[dir] = []
-        self._generate_dirs[dir].append(path)
+            self._generate_dirs.append(dir)
+        super().process_delete(path)
 
     def process_changes_complete(self):
-        for directory, excludes in self._generate_dirs.items():
-            self._generate_index(directory, excludes)
+        for directory in self._generate_dirs:
+            self._generate_index(directory)
 
-    def _generate_index(self, directory, exclude=None):
+    def _generate_index(self, directory):
         dirs = []
         files = []
         for name in os.listdir(directory):
             path = os.path.join(directory, name)
-            if self._is_hidden(path) or path in exclude or path == self.template:
+            if self._is_hidden(path) or path == self.template:
                 continue
             elif os.path.isfile(path):
                 files.append(path)
