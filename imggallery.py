@@ -17,6 +17,8 @@ if sys.platform == 'win32':
             except (AttributeError, AssertionError):
                 return False
         def _create_symlink(self, source, target):
+            if os.path.isfile(target):
+                os.remove(target)
             win32file.CreateSymbolicLink(target, source)
     except ImportError:
         pass
@@ -28,6 +30,8 @@ if '_is_hidden' not in globals():
         return any([part != '..' and part.startswith('.') for part in parts])
 if '_create_symlink' not in globals():
     def _create_symlink(self, source, target):
+        if os.path.isfile(target):
+            os.remove(target)
         os.symlink(source, target)
 
 @register()
@@ -74,12 +78,13 @@ class ImgGalleryProcessor(Processor):
                 if dir not in self._generate_dirs:
                     self._generate_dirs[dir] = []
             return []
-        if self._is_hidden(path):
+        if self._is_hidden(path) or os.path.basename(path) == self.index:
             return []
 
         rel = os.path.relpath(path, self.app.content_root)
         target = os.path.join(self.app.build_root, rel)
         os.makedirs(os.path.dirname(target), exist_ok=True)
+
         if self.use_symlinks:
             # Create symlink
             self._create_symlink(path, target)
