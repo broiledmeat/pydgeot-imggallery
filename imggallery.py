@@ -167,7 +167,7 @@ class ImgGalleryProcessor(Processor):
         return self.default_thumb
 
     def _generate_thumbnail(self, path):
-        if os.path.splitext(path)[1] in self.thumbable_exts:
+        if os.path.splitext(path)[1].lower() in self.thumbable_exts:
             target = self._thumbnail_path(path)
             image = None
             try:
