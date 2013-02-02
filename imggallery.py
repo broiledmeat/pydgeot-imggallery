@@ -53,21 +53,21 @@ class ImgGalleryProcessor(Processor):
 
         if self.root is not None and self.template is not None:
             self.regex = re.compile('^{0}{1}(.*)$'.format(self.root, os.sep).replace('\\', '\\\\'))
-            self.root = os.path.abspath(os.path.join(self.app.content_root, self.root))
-            self.build_root = os.path.join(self.app.build_root, os.path.relpath(self.root, self.app.content_root))
-            self.template = os.path.abspath(os.path.join(self.app.content_root, self.template))
+            self.root = os.path.abspath(os.path.join(self.app.source_root, self.root))
+            self.build_root = os.path.join(self.app.build_root, os.path.relpath(self.root, self.app.source_root))
+            self.template = os.path.abspath(os.path.join(self.app.source_root, self.template))
 
         self.is_valid = os.path.isdir(self.root) and os.path.isfile(self.template)
 
         if self.is_valid:
             setattr(self, _is_hidden.__name__, types.MethodType(_is_hidden, self))
             setattr(self, _create_symlink.__name__, types.MethodType(_create_symlink, self))
-            self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.content_root))
+            self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.source_root))
             self._generate_dirs = []
 
 
     def can_process(self, path):
-        return self.is_valid and self.regex.search(os.path.relpath(path, self.app.content_root)) is not None
+        return self.is_valid and self.regex.search(os.path.relpath(path, self.app.source_root)) is not None
 
     def process_update(self, path):
         if path == self.template:
@@ -81,7 +81,7 @@ class ImgGalleryProcessor(Processor):
         if self._is_hidden(path) or os.path.basename(path) == self.index:
             return []
 
-        rel = os.path.relpath(path, self.app.content_root)
+        rel = os.path.relpath(path, self.app.source_root)
         target = os.path.join(self.app.build_root, rel)
         os.makedirs(os.path.dirname(target), exist_ok=True)
 
@@ -129,7 +129,7 @@ class ImgGalleryProcessor(Processor):
         dirs = self._contextify_file_list(directory, dirs)
         files = self._contextify_file_list(directory, files)
 
-        rel = os.path.relpath(directory, self.app.content_root)
+        rel = os.path.relpath(directory, self.app.source_root)
         target = os.path.join(self.app.build_root, rel)
         os.makedirs(target, exist_ok=True)
         content = open(self.template).read()
@@ -147,7 +147,7 @@ class ImgGalleryProcessor(Processor):
             thumb = self._get_thumbnail(file)
             if thumb is not None:
                 rel_thumb = os.path.relpath(thumb, self.app.build_root)
-                rel_root = os.path.relpath(root, self.app.content_root)
+                rel_root = os.path.relpath(root, self.app.source_root)
                 thumb = os.path.relpath(rel_thumb, rel_root)
             yield (os.path.basename(file), thumb)
 
