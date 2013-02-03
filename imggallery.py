@@ -111,6 +111,8 @@ class ImgGalleryProcessor(Processor):
         super().process_delete(path)
 
     def process_changes_complete(self):
+        if not self.is_valid:
+            return
         for directory in self._generate_dirs:
             self._generate_index(directory)
 
