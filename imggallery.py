@@ -6,6 +6,7 @@ import shutil
 import pystacia
 import jinja2
 from pydgeot.processors import register, Processor
+from pydgeot.processors.builtins.symlinkfallback import create_symlink
 
 if sys.platform == 'win32':
     try:
@@ -16,10 +17,6 @@ if sys.platform == 'win32':
                 return bool(win32file.GetFileAttributes(path) & 2)
             except (AttributeError, AssertionError):
                 return False
-        def _create_symlink(self, source, target):
-            if os.path.isfile(target):
-                os.remove(target)
-            win32file.CreateSymbolicLink(target, source)
     except ImportError:
         pass
 
@@ -28,11 +25,6 @@ if '_is_hidden' not in globals():
         rel = os.path.relpath(path, self.root)
         parts = rel.split(os.sep)
         return any([part != '..' and part.startswith('.') for part in parts])
-if '_create_symlink' not in globals():
-    def _create_symlink(self, source, target):
-        if os.path.isfile(target):
-            os.remove(target)
-        os.symlink(source, target)
 
 @register()
 class ImgGalleryProcessor(Processor):
@@ -61,7 +53,6 @@ class ImgGalleryProcessor(Processor):
 
         if self.is_valid:
             setattr(self, _is_hidden.__name__, types.MethodType(_is_hidden, self))
-            setattr(self, _create_symlink.__name__, types.MethodType(_create_symlink, self))
             self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.source_root))
             self._generate_dirs = []
 
@@ -87,7 +78,7 @@ class ImgGalleryProcessor(Processor):
 
         if self.use_symlinks:
             # Create symlink
-            self._create_symlink(path, target)
+            create_symlink(path, target)
         else:
             # Copy original
             shutil.copy2(path, target)
