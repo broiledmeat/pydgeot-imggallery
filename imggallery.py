@@ -41,7 +41,11 @@ class ImgGalleryProcessor(Processor):
         self.ext_thumbs = self._get_setting('ext_thumbs', {})
         self.max_width = self._get_setting('width', 214)
         self.max_height = self._get_setting('height', 160)
-        self.use_symlinks = self._get_setting('use_symlinks', False)
+
+        if self._get_setting('use_symlinks', False):
+            self.copy = create_symlink
+        else:
+            self.copy = shutil.copy2
 
         if self.root is not None and self.template is not None:
             self.regex = re.compile('^{0}{1}(.*)$'.format(self.root, os.sep).replace('\\', '\\\\'))
@@ -55,7 +59,6 @@ class ImgGalleryProcessor(Processor):
             setattr(self, _is_hidden.__name__, types.MethodType(_is_hidden, self))
             self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.source_root))
             self._generate_dirs = []
-
 
     def can_process(self, path):
         return self.is_valid and self.regex.search(os.path.relpath(path, self.app.source_root)) is not None
@@ -73,15 +76,16 @@ class ImgGalleryProcessor(Processor):
             return []
 
         rel = os.path.relpath(path, self.app.source_root)
+        parent = os.path.dirname(path)
         target = os.path.join(self.app.build_root, rel)
-        os.makedirs(os.path.dirname(target), exist_ok=True)
+        target_dir = os.path.dirname(target)
+        target_parent = os.path.split(target_dir)[0]
+        if not os.path.exists(target_parent):
+            os.makedirs(target_dir, exist_ok=True)
+            if parent not in self._generate_dirs:
+                self._generate_dirs.append(parent)
 
-        if self.use_symlinks:
-            # Create symlink
-            create_symlink(path, target)
-        else:
-            # Copy original
-            shutil.copy2(path, target)
+        self.copy(path, target)
         targets = [target]
 
         # Generate thumbnail
@@ -100,6 +104,10 @@ class ImgGalleryProcessor(Processor):
         if dir not in self._generate_dirs:
             self._generate_dirs.append(dir)
         super().process_delete(path)
+        if dir is not self.root and not os.path.exists(dir):
+            parent = os.path.split(dir)[0]
+            if parent not in self._generate_dirs:
+                self._generate_dirs.append(parent)
 
     def process_changes_complete(self):
         if not self.is_valid:
@@ -108,6 +116,8 @@ class ImgGalleryProcessor(Processor):
             self._generate_index(directory)
 
     def _generate_index(self, directory):
+        if not os.path.isdir(directory):
+            return
         dirs = []
         files = []
         for name in os.listdir(directory):
