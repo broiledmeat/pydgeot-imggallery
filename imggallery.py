@@ -80,11 +80,10 @@ class ImgGalleryProcessor(Processor):
         target = os.path.join(self.app.build_root, rel)
         target_dir = os.path.dirname(target)
         target_parent = os.path.split(target_dir)[0]
-        if not os.path.exists(target_parent):
-            os.makedirs(target_dir, exist_ok=True)
-            if parent not in self._generate_dirs:
-                self._generate_dirs.append(parent)
+        if not os.path.exists(target_parent) and parent not in self._generate_dirs:
+            self._generate_dirs.append(parent)
 
+        os.makedirs(target_dir, exist_ok=True)
         self.copy(path, target)
         targets = [target]
 
