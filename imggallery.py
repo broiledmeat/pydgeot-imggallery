@@ -136,12 +136,13 @@ class ImgGalleryProcessor(Processor):
         os.makedirs(target, exist_ok=True)
         content = open(self.template).read()
         template = self.env.from_string(content)
-        f = open(os.path.join(target, self.index), 'w')
-        f.write(template.render(
+        f = open(os.path.join(target, self.index), 'w', encoding='utf-8')
+        rendered = template.render(
             dir_name=os.path.basename(directory),
             has_parent_dir=(directory != self.root),
             dirs=dirs,
-            files=files))
+            files=files)
+        f.write(rendered)
         f.close()
 
     def _contextify_file_list(self, root, files):
