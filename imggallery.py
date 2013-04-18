@@ -1,36 +1,18 @@
-import sys
 import os
-import types
 import re
 import shutil
-import pystacia
 import jinja2
+from PIL import Image
 from pydgeot.processors import register, Processor
-from pydgeot.processors.builtins.symlinkfallback import create_symlink
+from pydgeot.utils.filesystem import is_hidden, create_symlink
 
-if sys.platform == 'win32':
-    try:
-        import win32file
-
-        def _is_hidden(self, path):
-            try:
-                return bool(win32file.GetFileAttributes(path) & 2)
-            except (AttributeError, AssertionError):
-                return False
-    except ImportError:
-        pass
-
-if '_is_hidden' not in globals():
-    def _is_hidden(self, path):
-        rel = os.path.relpath(path, self.root)
-        parts = rel.split(os.sep)
-        return any([part != '..' and part.startswith('.') for part in parts])
 
 @register()
 class ImgGalleryProcessor(Processor):
     priority = 100
     key_name = 'imggallery'
     thumb_dir = '.thumbs'
+
     def __init__(self, app):
         super().__init__(app)
         self.root = self._get_setting('directory')
@@ -56,7 +38,6 @@ class ImgGalleryProcessor(Processor):
         self.is_valid = os.path.isdir(self.root) and os.path.isfile(self.template)
 
         if self.is_valid:
-            setattr(self, _is_hidden.__name__, types.MethodType(_is_hidden, self))
             self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.source_root))
             self._generate_dirs = []
 
@@ -66,13 +47,13 @@ class ImgGalleryProcessor(Processor):
     def process_update(self, path):
         if path == self.template:
             walk = list(os.walk(self.root))
-            dirs = [path for path, dirs, files in walk if not self._is_hidden(path)]
+            dirs = [path for path, dirs, files in walk if not is_hidden(path)]
             dirs.append(self.root)
             for dir in dirs:
                 if dir not in self._generate_dirs:
                     self._generate_dirs.append(dir)
             return []
-        if self._is_hidden(path) or os.path.basename(path) == self.index:
+        if is_hidden(path) or os.path.basename(path) == self.index:
             return []
 
         rel = os.path.relpath(path, self.app.source_root)
@@ -121,7 +102,7 @@ class ImgGalleryProcessor(Processor):
         files = []
         for name in os.listdir(directory):
             path = os.path.join(directory, name)
-            if self._is_hidden(path) or path == self.template:
+            if is_hidden(path) or path == self.template:
                 continue
             elif os.path.isfile(path):
                 files.append(path)
@@ -172,20 +153,14 @@ class ImgGalleryProcessor(Processor):
     def _generate_thumbnail(self, path):
         if os.path.splitext(path)[1].lower() in self.thumbable_exts:
             target = self._thumbnail_path(path)
-            image = None
             try:
-                image = pystacia.read(path)
-                if image.width > self.max_width or image.height > self.max_height:
-                    ratio = min(self.max_width / image.width, self.max_height / image.height)
-                    image.rescale(int(ratio * image.width), int(ratio * image.height))
+                image = Image.open(path)
+                image.thumbnail((self.max_width, self.max_height), Image.ANTIALIAS)
                 os.makedirs(os.path.dirname(target), exist_ok=True)
-                image.write(target)
+                image.save(target)
                 return target
             except:
                 pass
-            finally:
-                if image is not None:
-                    image.close()
         return None
 
     def _get_setting(self, name, default=None):
