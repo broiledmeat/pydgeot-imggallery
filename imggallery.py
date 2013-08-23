@@ -16,7 +16,7 @@ class ImgGalleryProcessor(Processor):
     def __init__(self, app):
         super().__init__(app)
         self.root = self._get_setting('directory')
-        self.template = self._get_setting('template')
+        self.template = self._get_setting('template', '.template.html')
         self.index = self._get_setting('index', 'index.html')
         self.default_thumb = self._get_setting('default_thumb', None)
         self.thumbable_exts = self._get_setting('thumbable_exts', ['.jpg', '.jpeg', '.gif', '.png'])
@@ -31,100 +31,106 @@ class ImgGalleryProcessor(Processor):
 
         if self.root is not None and self.template is not None:
             self.regex = re.compile('^{0}{1}(.*)$'.format(self.root, os.sep).replace('\\', '\\\\'))
-            self.root = os.path.abspath(os.path.join(self.app.source_root, self.root))
-            self.build_root = os.path.join(self.app.build_root, os.path.relpath(self.root, self.app.source_root))
-            self.template = os.path.abspath(os.path.join(self.app.source_root, self.template))
+            self.root = self.app.source_path(self.root)
+            self.build_root = self.app.target_path(self.root)
 
-        self.is_valid = os.path.isdir(self.root) and os.path.isfile(self.template)
+        self.is_valid = os.path.isfile(self._get_template(self.root))
 
         if self.is_valid:
-            self.env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.source_root))
-            self._generate_dirs = []
+            self._env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.source_root))
+            self._generate_directories = set()
+            self._generate_files = set()
 
     def can_process(self, path):
         return self.is_valid and self.regex.search(os.path.relpath(path, self.app.source_root)) is not None
 
-    def process_update(self, path):
-        if path == self.template:
+    def prepare(self, path):
+        if os.path.basename(path) == self.template:
+            self.app.sources.add_source(path)
+
             walk = list(os.walk(self.root))
-            dirs = [path for path, dirs, files in walk if not is_hidden(path)]
-            dirs.append(self.root)
-            for dir in dirs:
-                if dir not in self._generate_dirs:
-                    self._generate_dirs.append(dir)
-            return []
-        if is_hidden(path) or os.path.basename(path) == self.index:
-            return []
+            directories = [path for path, dirs, files in walk if not is_hidden(path)]
+            directories.append(self.root)
+            for directory in directories:
+                self._generate_directories.add(directory)
+            return
 
-        rel = os.path.relpath(path, self.app.source_root)
-        parent = os.path.dirname(path)
-        target = os.path.join(self.app.build_root, rel)
-        target_dir = os.path.dirname(target)
-        target_parent = os.path.split(target_dir)[0]
-        if not os.path.exists(target_parent) and parent not in self._generate_dirs:
-            self._generate_dirs.append(parent)
+        if not is_hidden(path) and not os.path.basename(path) == self.index:
+            target_path = self.app.target_path(path)
+            self.app.sources.set_targets(path, [target_path])
+            self._generate_files.add(path)
+            self._generate_directories.add(os.path.dirname(path))
 
-        os.makedirs(target_dir, exist_ok=True)
-        self.copy(path, target)
-        targets = [target]
+            parent_directory = os.path.split(os.path.dirname(path))[0]
+            target_directory = self.app.target_path(os.path.dirname(path))
+            if not os.path.exists(target_directory):
+                self._generate_directories.add(parent_directory)
 
-        # Generate thumbnail
-        thumb = self._generate_thumbnail(path)
-        if thumb is not None:
-            targets.append(thumb)
+    def generate(self, path):
+        if path in self._generate_files:
+            target_path = self.app.target_path(path)
 
-        dir = os.path.dirname(path)
-        if dir not in self._generate_dirs:
-            self._generate_dirs.append(dir)
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            self.copy(path, target_path)
 
-        return targets
+            # Generate thumbnail
+            thumb_path = self._generate_thumbnail(path)
+            if thumb_path is not None:
+                self.app.sources.set_targets(path, [target_path, thumb_path])
 
-    def process_delete(self, path):
-        dir = os.path.dirname(path)
-        if dir not in self._generate_dirs:
-            self._generate_dirs.append(dir)
-        super().process_delete(path)
-        if dir is not self.root and not os.path.exists(dir):
-            parent = os.path.split(dir)[0]
-            if parent not in self._generate_dirs:
-                self._generate_dirs.append(parent)
+    def delete(self, path):
+        directory = os.path.dirname(path)
+        self._generate_directories.add(directory)
 
-    def process_changes_complete(self):
+        super().delete(path)
+
+        if directory != self.root:
+            parent = os.path.split(directory)[0]
+            self._generate_directories.add(parent)
+
+    def generation_complete(self):
         if not self.is_valid:
             return
-        for directory in self._generate_dirs:
+        for directory in self._generate_directories:
             self._generate_index(directory)
 
     def _generate_index(self, directory):
-        if not os.path.isdir(directory):
-            return
-        dirs = []
+        directories = []
         files = []
         for name in os.listdir(directory):
             path = os.path.join(directory, name)
-            if is_hidden(path) or path == self.template:
+            if is_hidden(path) or os.path.split(path)[1] == self.template:
                 continue
             elif os.path.isfile(path):
                 files.append(path)
             elif os.path.isdir(path):
-                dirs.append(path)
+                directories.append(path)
 
-        dirs = self._contextify_file_list(directory, dirs)
+        directories = self._contextify_file_list(directory, directories)
         files = self._contextify_file_list(directory, files)
 
-        rel = os.path.relpath(directory, self.app.source_root)
-        target = os.path.join(self.app.build_root, rel)
-        os.makedirs(target, exist_ok=True)
-        content = open(self.template).read()
-        template = self.env.from_string(content)
-        f = open(os.path.join(target, self.index), 'w', encoding='utf-8')
+        target_directory = self.app.target_path(directory)
+        target_path = os.path.join(target_directory, self.index)
+
+        os.makedirs(target_directory, exist_ok=True)
+
+        content = open(self._get_template(directory)).read()
+        template = self._env.from_string(content)
+        f = open(target_path, 'w', encoding='utf-8')
         rendered = template.render(
             dir_name=os.path.basename(directory),
             has_parent_dir=(directory != self.root),
-            dirs=dirs,
+            dirs=directories,
             files=files)
         f.write(rendered)
         f.close()
+
+    def _get_template(self, directory):
+        path = None
+        while (path is None or not os.path.isfile(path)) and path != self.root:
+            path = os.path.join(directory, self.template)
+            directory = os.path.split(directory)[0]
+        return path
 
     def _contextify_file_list(self, root, files):
         for file in files:
@@ -137,9 +143,9 @@ class ImgGalleryProcessor(Processor):
 
     def _thumbnail_path(self, path):
         rel = os.path.relpath(path, self.root)
-        dir = os.path.dirname(rel)
+        directory = os.path.dirname(rel)
         file = os.path.basename(rel)
-        return os.path.abspath(os.path.join(self.build_root, dir, self.thumb_dir, file))
+        return os.path.abspath(os.path.join(self.build_root, directory, self.thumb_dir, file))
 
     def _get_thumbnail(self, path):
         thumb = self._thumbnail_path(path)
@@ -159,7 +165,7 @@ class ImgGalleryProcessor(Processor):
                 os.makedirs(os.path.dirname(target), exist_ok=True)
                 image.save(target)
                 return target
-            except:
+            except IOError:
                 pass
         return None
 
