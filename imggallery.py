@@ -1,8 +1,9 @@
 import os
 import re
+import datetime
 import shutil
 import jinja2
-from PIL import Image
+from PIL import Image, ExifTags
 from pydgeot.processors import register, Processor
 from pydgeot.utils.filesystem import is_hidden, create_symlink
 
@@ -55,9 +56,22 @@ class ImgGalleryProcessor(Processor):
                 self._generate_directories.add(directory)
             return
 
+        self.app.sources.add_source(path)
         if not is_hidden(path) and not os.path.basename(path) == self.index:
             target_path = self.app.target_path(path)
+
             self.app.sources.set_targets(path, [target_path])
+            exif_data = self._get_exif_data(path)
+            for name, value in exif_data.items():
+                self.app.contexts.add_context(path, name, str(value))
+            taken_date = os.stat(path).st_ctime
+            for name in ('DateTime', 'DateTimeOriginal', 'DateTimeDigitized'):
+                if name in exif_data:
+                    taken_date = datetime.datetime.strptime(exif_data[name], '%Y:%m:%d %H:%M:%S')
+                    # "2013:08:04 16:34:09"
+            print(path, taken_date)
+            self.app.contexts.add_context(path, 'date', taken_date)
+
             self._generate_files.add(path)
             self._generate_directories.add(os.path.dirname(path))
 
@@ -133,13 +147,18 @@ class ImgGalleryProcessor(Processor):
         return path
 
     def _contextify_file_list(self, root, files):
+        contexts = []
         for file in files:
+            data = {'filename': os.path.basename(file)}
             thumb = self._get_thumbnail(file)
             if thumb is not None:
                 rel_thumb = os.path.relpath(thumb, self.app.build_root)
                 rel_root = os.path.relpath(root, self.app.source_root)
-                thumb = os.path.relpath(rel_thumb, rel_root)
-            yield (os.path.basename(file), thumb)
+                data['thumbname'] = os.path.relpath(rel_thumb, rel_root)
+            for result in self.app.contexts.get_contexts(source=file):
+                data[result.name] = result.value
+            contexts.append(data)
+        return contexts
 
     def _thumbnail_path(self, path):
         rel = os.path.relpath(path, self.root)
@@ -168,6 +187,16 @@ class ImgGalleryProcessor(Processor):
             except IOError:
                 pass
         return None
+
+    def _get_exif_data(self, path):
+        image = Image.open(path)
+        raw_data = image._getexif()
+        exif_data = {}
+        if raw_data is not None:
+            for id, value in raw_data.items():
+                name = ExifTags.TAGS[id] if id in ExifTags.TAGS else id
+                exif_data[name] = value
+        return exif_data
 
     def _get_setting(self, name, default=None):
         if self.key_name not in self.app.settings:
