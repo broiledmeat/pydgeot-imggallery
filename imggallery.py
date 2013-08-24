@@ -187,13 +187,16 @@ class ImgGalleryProcessor(Processor):
         return None
 
     def _get_exif_data(self, path):
-        image = Image.open(path)
-        raw_data = image._getexif()
         exif_data = {}
-        if raw_data is not None:
-            for id, value in raw_data.items():
-                name = ExifTags.TAGS[id] if id in ExifTags.TAGS else id
-                exif_data[name] = value
+        try:
+            image = Image.open(path)
+            raw_data = image._getexif()
+            if raw_data is not None:
+                for id, value in raw_data.items():
+                    name = ExifTags.TAGS[id] if id in ExifTags.TAGS else id
+                    exif_data[name] = value
+        except OSError:
+            pass
         return exif_data
 
     def _get_setting(self, name, default=None):
