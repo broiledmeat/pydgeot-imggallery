@@ -190,7 +190,7 @@ class ImgGalleryProcessor(Processor):
         exif_data = {}
         try:
             image = Image.open(path)
-            raw_data = image._getexif()
+            raw_data = image._getexif() if hasattr(image, '_getexif') else None
             if raw_data is not None:
                 for id, value in raw_data.items():
                     name = ExifTags.TAGS[id] if id in ExifTags.TAGS else id
