@@ -64,12 +64,10 @@ class ImgGalleryProcessor(Processor):
             exif_data = self._get_exif_data(path)
             for name, value in exif_data.items():
                 self.app.contexts.add_context(path, name, str(value))
-            taken_date = os.stat(path).st_ctime
+            taken_date = datetime.datetime.fromtimestamp(os.stat(path).st_ctime)
             for name in ('DateTime', 'DateTimeOriginal', 'DateTimeDigitized'):
                 if name in exif_data:
                     taken_date = datetime.datetime.strptime(exif_data[name], '%Y:%m:%d %H:%M:%S')
-                    # "2013:08:04 16:34:09"
-            print(path, taken_date)
             self.app.contexts.add_context(path, 'date', taken_date)
 
             self._generate_files.add(path)
