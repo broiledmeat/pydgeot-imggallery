@@ -73,10 +73,12 @@ class ImgGalleryProcessor(Processor):
             self._generate_files.add(path)
             self._generate_directories.add(os.path.dirname(path))
 
-            parent_directory = os.path.split(os.path.dirname(path))[0]
-            target_directory = self.app.target_path(os.path.dirname(path))
-            if not os.path.exists(target_directory):
-                self._generate_directories.add(parent_directory)
+            directory = os.path.dirname(path)
+            if directory != self.root:
+                parent_directory = os.path.split(directory)[0]
+                target_directory = self.app.target_path(os.path.dirname(path))
+                if not os.path.exists(target_directory):
+                    self._generate_directories.add(parent_directory)
 
     def generate(self, path):
         if path in self._generate_files:
@@ -147,7 +149,10 @@ class ImgGalleryProcessor(Processor):
     def _contextify_file_list(self, root, files):
         contexts = []
         for file in files:
-            data = {'filename': os.path.basename(file)}
+            data = {
+                'filename': os.path.basename(file),
+                'date': 0
+            }
             thumb = self._get_thumbnail(file)
             if thumb is not None:
                 rel_thumb = os.path.relpath(thumb, self.app.build_root)
