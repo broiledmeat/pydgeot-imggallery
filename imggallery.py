@@ -46,12 +46,12 @@ class ImgGalleryProcessor(Processor):
         return self.is_valid and self.regex.search(os.path.relpath(path, self.app.source_root)) is not None
 
     def prepare(self, path):
-        if os.path.basename(path) == self.template:
+        if os.path.basename(path) == os.path.basename(self.template):
             self.app.sources.add_source(path)
-
-            walk = list(os.walk(self.root))
+            path_dir = os.path.dirname(path)
+            walk = list(os.walk(path_dir))
             directories = [path for path, dirs, files in walk if not is_hidden(path)]
-            directories.append(self.root)
+            directories.append(path_dir)
             for directory in directories:
                 self._generate_directories.add(directory)
             return
@@ -59,6 +59,7 @@ class ImgGalleryProcessor(Processor):
         self.app.sources.add_source(path)
         if not is_hidden(path) and not os.path.basename(path) == self.index:
             target_path = self.app.target_path(path)
+            path_dir = os.path.dirname(path)
 
             self.app.sources.set_targets(path, [target_path])
             exif_data = self._get_exif_data(path)
@@ -71,11 +72,10 @@ class ImgGalleryProcessor(Processor):
             self.app.contexts.add_context(path, 'date', taken_date)
 
             self._generate_files.add(path)
-            self._generate_directories.add(os.path.dirname(path))
+            self._generate_directories.add(path_dir)
 
-            directory = os.path.dirname(path)
-            if directory != self.root:
-                parent_directory = os.path.split(directory)[0]
+            if path_dir != self.root:
+                parent_directory = os.path.split(path_dir)[0]
                 target_directory = self.app.target_path(os.path.dirname(path))
                 if not os.path.exists(target_directory):
                     self._generate_directories.add(parent_directory)
@@ -113,7 +113,7 @@ class ImgGalleryProcessor(Processor):
         files = []
         for name in os.listdir(directory):
             path = os.path.join(directory, name)
-            if is_hidden(path) or os.path.split(path)[1] == self.template:
+            if is_hidden(path) or os.path.split(path)[1] == os.path.basename(self.template):
                 continue
             elif os.path.isfile(path):
                 files.append(path)
@@ -142,7 +142,7 @@ class ImgGalleryProcessor(Processor):
     def _get_template(self, directory):
         path = None
         while (path is None or not os.path.isfile(path)) and path != self.root:
-            path = os.path.join(directory, self.template)
+            path = os.path.join(directory, os.path.basename(self.template))
             directory = os.path.split(directory)[0]
         return path
 
@@ -191,7 +191,8 @@ class ImgGalleryProcessor(Processor):
                 pass
         return None
 
-    def _get_exif_data(self, path):
+    @staticmethod
+    def _get_exif_data(path):
         exif_data = {}
         try:
             image = Image.open(path)
