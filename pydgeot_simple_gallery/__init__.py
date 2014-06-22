@@ -9,9 +9,9 @@ from pydgeot.utils.filesystem import is_hidden, create_symlink
 
 
 @register()
-class ImgGalleryProcessor(Processor):
+class SimpleGalleryProcessor(Processor):
     priority = 100
-    key_name = 'imggallery'
+    key_name = 'pydgeot_simple_gallery'
     thumb_dir = '.thumbs'
 
     def __init__(self, app):
