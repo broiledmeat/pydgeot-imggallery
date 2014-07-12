@@ -35,7 +35,7 @@ class SimpleGalleryProcessor(Processor):
             self.root = self.app.source_path(self.root)
             self.build_root = self.app.target_path(self.root)
 
-        self.is_valid = os.path.isfile(self._get_template(self.root))
+        self.is_valid = self._get_template(self.root) is not None
 
         if self.is_valid:
             self._env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.app.source_root))
@@ -140,11 +140,13 @@ class SimpleGalleryProcessor(Processor):
         f.close()
 
     def _get_template(self, directory):
-        path = None
-        while (path is None or not os.path.isfile(path)) and path != self.root:
-            path = os.path.join(directory, os.path.basename(self.template))
+        while True:
+            filename = os.path.join(directory, os.path.basename(self.template))
+            if os.path.isfile(filename):
+                return filename
+            if directory == self.root:
+                return None
             directory = os.path.split(directory)[0]
-        return path
 
     def _contextify_file_list(self, root, files):
         contexts = []
