@@ -57,7 +57,7 @@ class SimpleGalleryProcessor(Processor):
             return
 
         self.app.sources.add_source(path)
-        if not is_hidden(path) and not os.path.basename(path) == self.index:
+        if not os.path.basename(path) == self.index:
             target_path = self.app.target_path(path)
             path_dir = os.path.dirname(path)
 
@@ -109,6 +109,8 @@ class SimpleGalleryProcessor(Processor):
             self._generate_index(directory)
 
     def _generate_index(self, directory):
+        self.app.log.info('Generating index for ' + directory)
+
         directories = []
         files = []
         for name in os.listdir(directory):
