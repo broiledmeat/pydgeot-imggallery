@@ -3,7 +3,7 @@ from distutils.core import setup
 
 setup(
     name='pydgeot_simple_gallery',
-    version='0.2',
+    version='0.3',
     packages=['pydgeot_simple_gallery'],
     requires=['pydgeot', 'jinja2', 'pillow'],
     url='https://github.com/broiledmeat/pydgeot_simple_gallery',
