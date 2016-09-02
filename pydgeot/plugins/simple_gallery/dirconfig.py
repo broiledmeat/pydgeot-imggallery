@@ -11,10 +11,13 @@ class DirConfig(_DirConfig):
         :type app: pydgeot.app.App
         :type path: str
         """
+        from .processor import SimpleGalleryProcessor
+
         self.app = app
         self.path = path
 
-        self.is_valid = any(processor.name == 'SimpleGallery' for processor in app.get_config(path).processors)
+        self.is_valid = any(processor.name == SimpleGalleryProcessor.name
+                            for processor in app.get_config(path).processors)
         """:type: bool"""
         self.template = None
         """:type: str | None"""

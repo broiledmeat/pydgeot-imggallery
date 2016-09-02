@@ -5,9 +5,8 @@ from pydgeot.processors import register, Processor
 from pydgeot.filesystem import is_hidden, create_symlink
 
 
-@register()
+@register(name='simple_gallery')
 class SimpleGalleryProcessor(Processor):
-    name = 'SimpleGallery'
     config_key = 'simple_gallery'
 
     def __init__(self, app):
@@ -23,13 +22,13 @@ class SimpleGalleryProcessor(Processor):
         self._generate_directories = set()
 
     def can_process(self, path):
-        from pydgeot_simple_gallery.dirconfig import DirConfig
+        from .dirconfig import DirConfig
 
         config = DirConfig.get(self.app, path)
         return config.is_valid
 
     def prepare(self, path):
-        from pydgeot_simple_gallery.dirconfig import DirConfig
+        from .dirconfig import DirConfig
 
         config = DirConfig.get(self.app, path)
         if not config.is_valid:
@@ -71,7 +70,7 @@ class SimpleGalleryProcessor(Processor):
                     self._generate_directories.add(parent_config.path)
 
     def generate(self, path):
-        from pydgeot_simple_gallery.dirconfig import DirConfig
+        from .dirconfig import DirConfig
 
         if path in self._generate_files:
             config = DirConfig.get(self.app, path)
@@ -92,7 +91,7 @@ class SimpleGalleryProcessor(Processor):
                 self.app.sources.set_targets(path, [target_path, thumb_path])
 
     def delete(self, path):
-        from pydgeot_simple_gallery.dirconfig import DirConfig
+        from .dirconfig import DirConfig
 
         directory = os.path.dirname(path)
         self._generate_directories.add(directory)
@@ -111,7 +110,7 @@ class SimpleGalleryProcessor(Processor):
         self._generate_directories.clear()
 
     def _generate_index(self, directory):
-        from pydgeot_simple_gallery.dirconfig import DirConfig
+        from .dirconfig import DirConfig
 
         config = DirConfig.get(self.app, directory)
         if not config.is_valid:
@@ -152,7 +151,7 @@ class SimpleGalleryProcessor(Processor):
 
     def _contextify_file_list(self, config, root, files):
         """
-        :type config: pydgeot_simple_gallery.dirconfig.DirConfig
+        :type config: .dirconfig.DirConfig
         :type root: str
         :type files: list[str]
         :rtype: dict[str, dict[str, Any]]
@@ -175,7 +174,7 @@ class SimpleGalleryProcessor(Processor):
 
     def _thumbnail_path(self, config, path):
         """
-        :type config: pydgeot_simple_gallery.dirconfig.DirConfig
+        :type config: .dirconfig.DirConfig
         :type path: str
         :rtype: str
         """
@@ -184,7 +183,7 @@ class SimpleGalleryProcessor(Processor):
 
     def _get_thumbnail(self, config, path):
         """
-        :type config: pydgeot_simple_gallery.dirconfig.DirConfig
+        :type config: .dirconfig.DirConfig
         :type path: str
         :rtype: str
         """
@@ -195,7 +194,7 @@ class SimpleGalleryProcessor(Processor):
 
     def _generate_thumbnail(self, config, path):
         """
-        :type config: pydgeot_simple_gallery.dirconfig.DirConfig
+        :type config: .dirconfig.DirConfig
         :type path: str
         """
         import imghdr
