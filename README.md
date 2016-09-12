@@ -22,22 +22,18 @@ python setup.py install
 ```
 
 ### Pydgeot Configuration
-- `directory` Root directory path to generate index pages and thumbnails for.
-- `template` Relative path from `directory` to a Jinja template to use for index pages. _Default: .template.html_
-- `default_thumb` Path to thumbnail image to use when no thumb can be generated. _Default: None_
-- `thumbable_exts` List of extensions to attempt to thumbnail. _Default: .jpg, .jpeg, .gif, .png_
-- `ext_thumbs` Dictionary of default thumbnails to use for extensions.
-- `max_width` Maximum width for generated thumbnails. _Default: 214_
-- `max_height` Maximum height for generated thumbnails. _Default: 160_
+- `template` Relative path (to the first parent directory to use the processor) to a Jinja template to use for index pages. _Default: .template.html_
+- `index` Filename to generate the index as. _Default: index.html_
+- `thumb_size` Maximum width and height for generated thumbnails, as a two element list. _Default: [214, 160]_
+- `thumb_default` Path to thumbnail image to use when no thumb can be generated. _Default: None_
 - `use_symlinks` Create symlinks for original files instead of copying them over to the build directory. _Default: False_
 
 
 ```json
 {
-    "plugins": ["pydgeot_simple_gallery",
-    			"builtins.jinja",
-    			"builtins.copyfallback"],
-    "pydgeot_simple_gallery": {
+    "plugins": ["simple_gallery"],
+    "processors": ["simple_gallery"],
+    "simple_gallery": {
         "directory": "mygallery",
         "use_symlinks": true
     }
