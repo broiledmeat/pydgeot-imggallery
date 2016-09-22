@@ -1,9 +1,17 @@
 import os
-from pydgeot.app import DirConfig as _DirConfig
+from pydgeot.app.dirconfig import BaseDirConfig
 
 
-class DirConfig(_DirConfig):
+class DirConfig(BaseDirConfig):
     _config_key = 'simple_gallery'
+    _default_config = {
+        'template': '.template.html',
+        'index': 'index.html',
+        'use_symlinks': False,
+        'thumbs': '.thumbs',
+        'thumb_size': (214, 160),
+        'thumb_default': None
+    }
 
     # noinspection PyMissingConstructor
     def __init__(self, app, path):
@@ -12,9 +20,6 @@ class DirConfig(_DirConfig):
         :type path: str
         """
         from .processor import SimpleGalleryProcessor
-
-        self.app = app
-        self.path = path
 
         self.is_valid = any(processor.name == SimpleGalleryProcessor.name
                             for processor in app.get_config(path).processors)
@@ -32,8 +37,7 @@ class DirConfig(_DirConfig):
         self.use_symlinks = False
         """:type: bool"""
 
-        if self.is_valid:
-            self._load()
+        super().__init__(app, path)
 
     def _parse(self, config_path, config, parent):
         """
@@ -43,27 +47,19 @@ class DirConfig(_DirConfig):
         """
         config = config.get(DirConfig._config_key, {})
 
-        def _set_option(name, default):
-            prop = config.pop(name, None)
-            if prop is None:
-                prop = default if parent is not None and parent.path == self.app.source_root else getattr(parent, name)
-            setattr(self, name, prop)
+        for name in ('index', 'use_symlinks', 'thumbs', 'thumb_size'):
+            value = config.pop(name, None)
+            if value is None:
+                value = self._default_config.get(name) if parent is None else getattr(parent, name)
+            setattr(self, name, value)
 
-        def _set_option_path(name, default):
-            prop = config.pop(name, None)
-            if prop is None and parent is not None and parent.path != self.app.source_root:
-                prop = getattr(parent, name)
+        for name in ('template', 'thumb_default'):
+            value = config.pop(name, None)
+            if value is None and parent is not None and parent.path != self.app.source_root:
+                value = getattr(parent, name)
             else:
-                if prop is None:
-                    prop = default
-                if prop is not None:
-                    prop = os.path.realpath(os.path.expanduser(os.path.join(self.path, prop)))
-            setattr(self, name, prop)
-
-        _set_option_path('template', '.template.html')
-        _set_option('index', 'index.html')
-        _set_option('use_symlinks', False)
-
-        _set_option('thumbs', '.thumbs')
-        _set_option('thumb_size', (214, 160))
-        _set_option_path('thumb_default', None)
+                if value is None:
+                    value = self._default_config.get(name)
+                if value is not None:
+                    value = os.path.realpath(os.path.expanduser(os.path.join(self.path, value)))
+            setattr(self, name, value)
