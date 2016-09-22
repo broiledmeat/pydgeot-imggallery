@@ -23,7 +23,6 @@ class SimpleGalleryProcessor(Processor):
 
     def can_process(self, path):
         from .dirconfig import DirConfig
-
         config = DirConfig.get(self.app, path)
         return config.is_valid
 
@@ -31,6 +30,7 @@ class SimpleGalleryProcessor(Processor):
         from .dirconfig import DirConfig
 
         config = DirConfig.get(self.app, path)
+
         if not config.is_valid:
             return
 
@@ -137,8 +137,7 @@ class SimpleGalleryProcessor(Processor):
 
         os.makedirs(target_directory, exist_ok=True)
 
-        content = open(config.template).read()
-        template = self._env.from_string(content)
+        template = self._env.get_template(self.app.relative_path(config.template))
         f = open(target_path, 'w', encoding='utf-8')
         rendered = template.render(
             config=config,
