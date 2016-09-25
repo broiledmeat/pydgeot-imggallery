@@ -21,13 +21,13 @@ cd pydgeot_simple_gallery
 python setup.py install
 ```
 
-### Pydgeot Configuration
+### Configuration
+Add `simple_gallery` to your pydgeot.conf `plugins` list. Simple Gallery looks for options under a `simple_gallery` key.
 - `template` Relative path (to the first parent directory to use the processor) to a Jinja template to use for index pages. _Default: .template.html_
 - `index` Filename to generate the index as. _Default: index.html_
 - `thumb_size` Maximum width and height for generated thumbnails, as a two element list. _Default: [214, 160]_
 - `thumb_default` Path to thumbnail image to use when no thumb can be generated. _Default: None_
 - `use_symlinks` Create symlinks for original files instead of copying them over to the build directory. _Default: False_
-
 
 ```json
 {
