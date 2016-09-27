@@ -1,0 +1,56 @@
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- The name of this indexed directory. -->
+        <title>{{ dir_name }}</title>
+        <style>
+            .file
+            {
+                display:        block;
+                margin-bottom:  0.5em;
+            }
+            
+            .thumb
+            {
+                display:        inline-block;
+                width:          214px;
+                text-align:     right;
+                vertical-align: top;
+            }
+
+            .info
+            {
+                display:        inline-block;
+            }
+        </style>
+    </head>
+    <body>
+        <b>{{ dir_name }}</b><br>
+        <!-- Provide a nagivate up link if available -->
+        {% if has_parent_dir %}<a href="..">../</a><br>{% endif %}
+        <br>
+        <!-- Sort subdirectories by name and iterate -->
+        {% for dir in dirs|sort(attribute="filename") %}
+            <a href="{{ dir.filename }}">{{ dir.filename }}/</a><br>
+        {% endfor %}
+        <!-- Sort files by name and iterate -->
+        {% for file in files|sort(attribute="filename") %}
+            <div class="file">
+                <div class="thumb">
+                    <!-- thumbname is set if a thumbnail was generated -->
+                    {% if file.thumbname %}<a href="{{ file.filename }}"><img src="{{ file.thumbname }}"></a>{% endif %}
+                </div>
+                <div class="info">
+                    <a href="{{ file.filename }}">{{ file.filename }}</a><br>
+                    <!-- Files created date from exif data, or the files mtime -->
+                    {{ file.date }}<br>
+                    <!-- Exif data properties -->
+                    {{ file.Model }}<br>
+                    {{ file.LensModel }}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </body>
+</html>
